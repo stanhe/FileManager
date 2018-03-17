@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/linearLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="10dp"
+    android:orientation="vertical">
+    <TextView
+        android:id="@+id/devices"
+        android:text="OTG device: "
+        app:layout_constraintTop_toBottomOf="@+id/name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <TextView
+        android:id="@+id/otgDevice"
+        app:layout_constraintTop_toTopOf="@id/devices"
+        app:layout_constraintLeft_toRightOf="@id/devices"
+        android:layout_marginLeft="20dp"
+        android:textSize="18sp"
+        app:layout_constraintBaseline_toBaselineOf="@id/devices"
+        android:text="null"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+    <Button
+        android:id="@+id/write"
+        android:layout_marginTop="10dp"
+        app:layout_constraintTop_toBottomOf="@id/devices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="write to otg"/>
+    <Button
+        android:id="@+id/open"
+        android:layout_marginTop="10dp"
+        app:layout_constraintLeft_toRightOf="@id/write"
+        app:layout_constraintTop_toBottomOf="@id/devices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="open usb"/>
+    <ScrollView
+        android:layout_marginTop="10dp"
+        app:layout_constraintTop_toBottomOf="@id/open"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <TextView
+            android:id="@+id/message"
+            android:text=""
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </ScrollView>
+</android.support.constraint.ConstraintLayout>
