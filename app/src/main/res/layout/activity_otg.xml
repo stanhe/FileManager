@@ -1,15 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/linearLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="10dp"
     android:orientation="vertical">
+    <EditText
+        android:id="@+id/et_file_name"
+        android:layout_width="match_parent"
+        app:layout_constraintTop_toBottomOf="@id/devices"
+        android:layout_height="wrap_content"
+        android:hint="fileName"/>
+    <EditText
+        android:id="@+id/et_content"
+        app:layout_constraintTop_toBottomOf="@id/create"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="content"/>
     <TextView
         android:id="@+id/devices"
         android:text="OTG device: "
-        app:layout_constraintTop_toBottomOf="@+id/name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
     <TextView
@@ -23,20 +35,30 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
     <Button
+        android:visibility="gone"
+        android:id="@+id/create"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toBottomOf="@id/et_file_name"
+        android:text="creatFile"
+        />
+    <Button
         android:id="@+id/write"
         android:layout_marginTop="10dp"
-        app:layout_constraintTop_toBottomOf="@id/devices"
+        app:layout_constraintTop_toBottomOf="@id/et_content"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="write to otg"/>
+
     <Button
         android:id="@+id/open"
-        android:layout_marginTop="10dp"
-        app:layout_constraintLeft_toRightOf="@id/write"
-        app:layout_constraintTop_toBottomOf="@id/devices"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="open usb"/>
+        android:text="open usb"
+        android:layout_marginLeft="20dp"
+        app:layout_constraintTop_toTopOf="@id/write"
+        app:layout_constraintLeft_toRightOf="@id/write"
+        tools:layout_editor_absoluteY="39dp" />
     <ScrollView
         android:layout_marginTop="10dp"
         app:layout_constraintTop_toBottomOf="@id/open"
@@ -45,6 +67,7 @@
         <TextView
             android:id="@+id/message"
             android:text=""
+            android:layout_marginBottom="20dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </ScrollView>

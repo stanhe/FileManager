@@ -1276,7 +1276,7 @@ public class DocumentsActivity extends BaseActivity {
                 DirectoryFragment.showSearch(fm, root, cwd, mState.currentSearch, anim);
                 mSearchResultShown = false;
             } else {
-                Log.e("Stan"," showNormal ");
+                Log.e("Stan"," createFile ");
                 // Normal boring directory
                 DirectoryFragment.showNormal(fm, root, cwd, anim);
             }
