@@ -1271,10 +1271,12 @@ public class DocumentsActivity extends BaseActivity {
             }
         } else {
             if (mState.currentSearch != null && mSearchResultShown) {
+                Log.e("Stan"," showSearch ");
                 // Ongoing search
                 DirectoryFragment.showSearch(fm, root, cwd, mState.currentSearch, anim);
                 mSearchResultShown = false;
             } else {
+                Log.e("Stan"," showNormal ");
                 // Normal boring directory
                 DirectoryFragment.showNormal(fm, root, cwd, anim);
             }

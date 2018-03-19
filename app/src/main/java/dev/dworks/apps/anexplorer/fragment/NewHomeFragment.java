@@ -1,9 +1,12 @@
 package dev.dworks.apps.anexplorer.fragment;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -26,8 +29,11 @@ import dev.dworks.apps.anexplorer.DocumentsActivity;
 import dev.dworks.apps.anexplorer.DocumentsApplication;
 import dev.dworks.apps.anexplorer.R;
 import dev.dworks.apps.anexplorer.misc.AnalyticsManager;
+import dev.dworks.apps.anexplorer.misc.AsyncTask;
+import dev.dworks.apps.anexplorer.misc.ContentProviderClientCompat;
 import dev.dworks.apps.anexplorer.misc.CrashReportingManager;
 import dev.dworks.apps.anexplorer.misc.IntentUtils;
+import dev.dworks.apps.anexplorer.misc.ProviderExecutor;
 import dev.dworks.apps.anexplorer.misc.RootsCache;
 import dev.dworks.apps.anexplorer.model.DocumentInfo;
 import dev.dworks.apps.anexplorer.model.DocumentsContract;
@@ -50,10 +56,6 @@ import static dev.dworks.apps.anexplorer.misc.AnalyticsManager.FILE_TYPE;
 
 public class NewHomeFragment extends Fragment {
     public static final String TAG = "NewHomeFragment";
-    private static final String EXTRA_STATE = "state";
-    private static final String EXTRA_AUTHENTICATED = "authenticated";
-    private static final String EXTRA_ACTIONMODE = "actionmode";
-    private static final String EXTRA_SEARCH_STATE = "searchsate";
     private Button open,write;
     private TextView otgDevice,message;
     private RootsCache roots;
@@ -71,12 +73,7 @@ public class NewHomeFragment extends Fragment {
     public void onViewCreated(View view, @Nullable Bundle icicle) {
         super.onViewCreated(view, icicle);
         mRoots = DocumentsApplication.getRootsCache(getActivity());
-
-        if (icicle != null) {
-            mState = icicle.getParcelable(EXTRA_STATE);
-        } else {
-            buildDefaultState();
-        }
+        buildDefaultState();
         initView(view);
         initData();
     }
@@ -117,8 +114,8 @@ public class NewHomeFragment extends Fragment {
 
         mState.localOnly = intent.getBooleanExtra(IntentUtils.EXTRA_LOCAL_ONLY, true);
         mState.forceAdvanced = intent.getBooleanExtra(DocumentsContract.EXTRA_SHOW_ADVANCED	, false);
-        mState.showAdvanced = mState.forceAdvanced
-                | SettingsActivity.getDisplayAdvancedDevices(getActivity());
+
+        mState.showAdvanced = mState.forceAdvanced | SettingsActivity.getDisplayAdvancedDevices(getActivity());
 
         mState.rootMode = SettingsActivity.getRootMode(getActivity());
     }
@@ -164,138 +161,34 @@ public class NewHomeFragment extends Fragment {
     private void showOtherStorage() {
         final RootInfo otgRoot = roots.getSecondaryRoot();
         if (null != otgRoot) {
-            //message.setText("Find otg device : "+otgRoot.title+"\n");
             setInfo(otgRoot);
             open.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    onRootPicked(otgRoot,mHomeRoot);
+                    mState.stack.root = otgRoot;
+                    mState.stack.clear();
+                    mState.stackTouched = true;
+                    final RootInfo root = getCurrentRoot();
+                    DocumentInfo cwd = getCurrentDirectory();
+                    if(cwd == null && (null != root && !root.isServerStorage())){
+                        final Uri uri = DocumentsContract.buildDocumentUri(root.authority, root.documentId);
+                        DocumentInfo result;
+                        try {
+                            result = DocumentInfo.fromUri(getActivity().getContentResolver(), uri);
+                            if (result != null) {
+                                mState.stack.push(result);
+                                mState.stackTouched = true;
+                                cwd = result;
+                            }
+                        } catch (FileNotFoundException e) {
+                            CrashReportingManager.logException(e);
+                        }
+                    }
+                    showNormal(root,cwd);
                 }
             });
         }else{
             otgDevice.setText("null");
-        }
-    }
-
-    public void onRootPicked(RootInfo root, RootInfo parentRoot) {
-        mParentRoot = parentRoot;
-        onRootPicked(root, true);
-    }
-    public void onRootPicked(RootInfo root, boolean closeDrawer) {
-
-        if(null == root){
-            return;
-        }
-        // Clear entire backstack and start in new root
-        mState.stack.root = root;
-        mState.stack.clear();
-        mState.stackTouched = true;
-
-        onCurrentDirectoryChanged(ANIM_SIDE);
-
-    }
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-    public void onCurrentDirectoryChanged(int anim) {
-        Log.e("Stan", " ==== onCurrentDirectoryChanged ====");
-        final FragmentManager fm = getFragmentManager();
-        final RootInfo root = getCurrentRoot();
-        DocumentInfo cwd = getCurrentDirectory();
-
-        //TODO : this has to be done nicely
-        if(cwd == null && (null != root && !root.isServerStorage())){
-            final Uri uri = DocumentsContract.buildDocumentUri(
-                    root.authority, root.documentId);
-            DocumentInfo result;
-            try {
-                result = DocumentInfo.fromUri(getActivity().getContentResolver(), uri);
-                if (result != null) {
-                    mState.stack.push(result);
-                    mState.stackTouched = true;
-                    cwd = result;
-                }
-            } catch (FileNotFoundException e) {
-                CrashReportingManager.logException(e);
-            }
-        }
-        if(!SettingsActivity.getFolderAnimation(getActivity())){
-            anim = 0;
-        }
-        if (cwd == null) {
-            // No directory means recents
-            if (mState.action == ACTION_CREATE || mState.action == ACTION_OPEN_TREE) {
-                RecentsCreateFragment.show(fm);
-            } else {
-                if(root.isHome()){
-                    Log.e("Stan","show newHome");
-                    //HomeFragment.show(fm);
-                    NewHomeFragment.show(fm);
-                }
-                else if(root.isConnections()){
-                    ConnectionsFragment.show(fm);
-                } else if(root.isServerStorage()){
-                    ServerFragment.show(fm, root);
-                } else {
-                    DirectoryFragment.showRecentsOpen(fm, anim);
-
-                    // Start recents in grid when requesting visual things
-                    final boolean visualMimes = true;//MimePredicate.mimeMatches(MimePredicate.VISUAL_MIMES, mState.acceptMimes);
-                    mState.userMode = visualMimes ? MODE_GRID : MODE_LIST;
-                    mState.derivedMode = mState.userMode;
-                }
-            }
-        } else {
-            {
-                // TODO: 2018/3/17
-                // Normal boring directory
-                DirectoryFragment.showNormal(fm, root, cwd, anim);
-            }
-        }
-
-        // Forget any replacement target
-        if (mState.action == ACTION_CREATE) {
-            final SaveFragment save = SaveFragment.get(fm);
-            if (save != null) {
-                save.setReplaceTarget(null);
-            }
-        }
-
-        if (mState.action == ACTION_OPEN_TREE) {
-            final PickFragment pick = PickFragment.get(fm);
-            if (pick != null) {
-                final CharSequence displayName = (mState.stack.size() <= 1) && null != root
-                        ? root.title : cwd.displayName;
-                pick.setPickTarget(cwd, displayName);
-            }
-        }
-
-        final MoveFragment move = MoveFragment.get(fm);
-        if (move != null) {
-            move.setReplaceTarget(cwd);
-        }
-
-        final RootsFragment roots = RootsFragment.get(fm);
-        if (roots != null) {
-            roots.onCurrentRootChanged();
-        }
-        dumpStack();
-    }
-
-    private void dumpStack() {
-        Log.d(TAG, "Current stack: ");
-        Log.d(TAG, " * " + mState.stack.root);
-        for (DocumentInfo doc : mState.stack) {
-            Log.d(TAG, " +-- " + doc);
-        }
-    }
-    public DocumentInfo getCurrentDirectory() {
-        return mState.stack.peek();
-    }
-
-    public RootInfo getCurrentRoot() {
-        if (mState.stack.root != null) {
-            return mState.stack.root;
-        } else {
-            return mState.action == ACTION_BROWSE ? mRoots.getDefaultRoot() : mRoots.getStorageRoot();
         }
     }
 
@@ -321,6 +214,8 @@ public class NewHomeFragment extends Fragment {
         return (NewHomeFragment) fm.findFragmentByTag(TAG);
     }
 
+
+
     public void reloadData(){
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
@@ -331,4 +226,66 @@ public class NewHomeFragment extends Fragment {
         }, 500);
     }
 
+    public DocumentInfo getCurrentDirectory() {
+        return mState.stack.peek();
+    }
+    public RootInfo getCurrentRoot() {
+        if (mState.stack.root != null) {
+            return mState.stack.root;
+        } else {
+            return mState.action == ACTION_BROWSE ? mRoots.getDefaultRoot() : mRoots.getStorageRoot();
+        }
+    }
+
+    public void showNormal(RootInfo root, DocumentInfo cwd) {
+        Log.e("Stan", "root : " + root.title);
+        Log.e("Stan", "cwd path : " + cwd.path);
+        Log.e("Stan","cwd .documentId" +cwd.documentId);
+        new CreateFileTask(getActivity(), cwd,"text/plain", "TestOtg").executeOnExecutor(ProviderExecutor.forAuthority(cwd.authority));
+    }
+    private class CreateFileTask extends AsyncTask<Void, Void, Uri> {
+        private final Activity mActivity;
+        private final DocumentInfo mCwd;
+        private final String mMimeType;
+        private final String mDisplayName;
+        public CreateFileTask(Activity activity,
+                              DocumentInfo cwd,
+                              String mimeType,
+                              String displayName) {
+            mActivity = activity;
+            mCwd = cwd;
+            mMimeType = mimeType;
+            mDisplayName = displayName;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            message.append(" prepare for create file! \n");
+        }
+
+        @Override
+        protected Uri doInBackground(Void... params) {
+            final ContentResolver resolver = mActivity.getContentResolver();
+            ContentProviderClient client = null;
+            Uri childUri = null;
+            try {
+                client = DocumentsApplication.acquireUnstableProviderOrThrow(
+                        resolver, mCwd.derivedUri.getAuthority());
+                childUri = DocumentsContract.createDocument(
+                        resolver, mCwd.derivedUri, mMimeType, mDisplayName);
+            } catch (Exception e) {
+                Log.w(DocumentsActivity.TAG, "Failed to create document", e);
+                CrashReportingManager.logException(e);
+            } finally {
+                ContentProviderClientCompat.releaseQuietly(client);
+            }
+
+            return childUri;
+        }
+
+        @Override
+        protected void onPostExecute(Uri result) {
+            message.append(" file TestOtg.txt created!");
+        }
+    }
 }
